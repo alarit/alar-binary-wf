@@ -5,7 +5,9 @@ import com.github.alarit.exception.InvalidWfException;
 import com.github.alarit.model.Vertex;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -16,8 +18,9 @@ public class WfGraph {
     private boolean isValidated = false;
     private Map<Vertex, Vertex[]> vertices = new HashMap<>();
 
-    private static final short SUCCESS = 0;
-    private static final short FAIL = 1;
+    private static final short FAIL = 0;
+    private static final short SUCCESS = 1;
+
     private static final Logger LOGGER = Logger.getLogger(WfGraph.class.getName());
 
     public WfGraph(Vertex root) {
@@ -43,15 +46,19 @@ public class WfGraph {
     public void invoke() throws InvalidWfException {
         this.current = null;
 
-        if (this.root == null) throw new InvalidWfException();
+        if (this.root == null) { throw new InvalidWfException(); }
 
-        if (!(this.isValidated || checkIsValid())) {
-            throw new InvalidWfException("Wf is not valid");
-        }
+        if (!(this.isValidated || checkIsValid())) { throw new InvalidWfException("Wf is not valid"); }
 
-        Vertex v = root;
+        var v = root;
+        Set<Vertex> visitedVertex = new HashSet<>();
         while (!v.isLeaf()) {
             LOGGER.log(Level.INFO, "Testing vertex {0}", v.getName());
+
+            if (visitedVertex.contains(v)) {
+                throw new InvalidWfException("Found a cycle in WF to vertex " + v.getName());
+            }
+            visitedVertex.add(v);
 
             if (WfStatus.SUCCESS.equals(v.test())) {
                 v = this.vertices.get(v)[SUCCESS];
@@ -64,36 +71,31 @@ public class WfGraph {
     }
 
     private WfGraph addPredicate(Vertex v, short status) throws InvalidWfException {
-        if (this.current == null) {
-            throw new InvalidWfException("Current vertex pointer is null");
-        }
-        if (v == null) {
-            throw new InvalidWfException("Vertex cannot be null");
-        }
+        if (this.current == null) { throw new InvalidWfException("Current vertex pointer is null"); }
+        if (v == null) { throw new InvalidWfException("Vertex cannot be null"); }
 
-        this.isValidated = false;
         this.vertices.get(current)[status] = v;
         addVertex(v);
         return this;
     }
 
     private void addVertex(Vertex v) {
+        this.isValidated = false;
+
         if (!this.vertices.containsKey(v)) {
             this.vertices.put(v, new Vertex[2]);
         }
     }
 
+    //Check there are no vertexes referencing null
     private boolean checkIsValid() {
-
-        //Check there are no vertexes referencing null
-        var validTmp = !this.vertices
+        this.isValidated = this.vertices
                 .keySet()
                 .stream()
                 .filter(v -> !v.isLeaf())
                 .map(v -> this.vertices.get(v))
-                .anyMatch(a -> a[FAIL] == null || a[SUCCESS] == null);
+                .noneMatch(a -> a[FAIL] == null || a[SUCCESS] == null);
 
-        this.isValidated = validTmp;
         return this.isValidated;
     }
 }

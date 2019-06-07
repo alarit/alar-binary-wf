@@ -143,6 +143,20 @@ public class WfGraphTest {
                 .invoke();
     }
 
+    @Test(expected = InvalidWfException.class)
+    public void testCycleinWf() throws InvalidWfException {
+        new WfGraph(root)
+                .addPredicateSuccess(v1)
+                .addPredicateFail(v2)
+                .moveToVertex(v1)
+                .addPredicateSuccess(v3)
+                .addPredicateFail(v1)
+                .moveToVertex(v2)
+                .addPredicateSuccess(v5)
+                .addPredicateFail(v6)
+                .invoke();
+    }
+
     @Test
     public void testNormalFlow() {
         try {
